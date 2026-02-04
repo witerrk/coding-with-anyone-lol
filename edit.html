@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editor</title>
     <style>
         :root { 
@@ -11,30 +12,122 @@
             --active-item: #37373d;
             --accent: #007acc;
         }
-        body { margin: 0; display: flex; height: 100vh; background: var(--editor-bg); font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
+
+        body { 
+            margin: 0; 
+            display: flex; 
+            height: 100vh; 
+            background: var(--editor-bg); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: white; 
+            overflow: hidden;
+        }
         
-        #sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid #333; display: flex; flex-direction: column; }
-        .sidebar-header { padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        #sidebar h3 { font-size: 11px; margin: 0; text-transform: uppercase; opacity: 0.6; letter-spacing: 1px; }
-        
-        #new-file-btn { background: none; border: none; color: var(--text-color); cursor: pointer; font-size: 18px; padding: 0 5px; }
+        /* Sidebar */
+        #sidebar { 
+            width: 260px; 
+            background: var(--sidebar-bg); 
+            border-right: 1px solid #333; 
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #sidebar h3 { 
+            font-size: 11px; 
+            margin: 0; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            opacity: 0.6; 
+        }
+
+        #new-file-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            padding: 0 5px;
+            transition: color 0.2s;
+        }
+
         #new-file-btn:hover { color: white; }
 
-        #file-list { overflow-y: auto; flex-grow: 1; }
-        .file-item { padding: 10px 20px; cursor: pointer; font-size: 13px; color: var(--text-color); border-bottom: 1px solid #2d2d2d; }
-        .file-item:hover { background: #2a2d2e; }
-        .file-item.active { background: var(--active-item); color: white; }
+        #file-list {
+            overflow-y: auto;
+            flex-grow: 1;
+        }
 
-        #main-container { flex-grow: 1; position: relative; display: flex; flex-direction: column; }
+        .file-item { 
+            padding: 10px 20px; 
+            cursor: pointer; 
+            font-size: 13px; 
+            color: var(--text-color);
+            border-bottom: 1px solid #2d2d2d;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-item:hover { background: #2a2d2e; }
+        .file-item.active { 
+            background: var(--active-item); 
+            color: white; 
+        }
+
+        /* Editor Area */
+        #main-container {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
         #editor { flex-grow: 1; }
-        
-        #save-btn { position: absolute; top: 15px; right: 25px; z-index: 100; background: var(--accent); color: white; border: none; padding: 8px 18px; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 2px; }
+
+        #save-btn {
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            z-index: 100;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
         #save-btn:hover { background: #0062a3; }
-        
-        #loader { position: absolute; top: 20px; left: 20px; z-index: 1000; background: rgba(0,0,0,0.8); padding: 6px 15px; font-size: 12px; display: none; border: 1px solid #444; border-radius: 2px; }
+
+        #loader {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 6px 15px;
+            font-size: 12px;
+            display: none;
+            border: 1px solid #444;
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body>
+
     <div id="sidebar">
         <div class="sidebar-header">
             <h3>Explorer</h3>
@@ -42,6 +135,7 @@
         </div>
         <div id="file-list"></div>
     </div>
+    
     <div id="main-container">
         <button id="save-btn">Save</button>
         <div id="loader">Processing...</div>
@@ -55,6 +149,7 @@
         let editor, currentFile = null;
 
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
+
         require(['vs/editor/editor.main'], function () {
             editor = monaco.editor.create(document.getElementById('editor'), {
                 value: "",
@@ -69,42 +164,60 @@
                 minimap: { enabled: false }
             });
 
-            if (typeof emmetMonaco !== 'undefined') emmetMonaco.emmetHTML(monaco);
+            // Initialize Emmet
+            if (typeof emmetMonaco !== 'undefined') {
+                emmetMonaco.emmetHTML(monaco);
+            }
+
+            // Initial load
             loadFiles();
         });
 
         async function loadFiles() {
             try {
                 const res = await fetch('/api/action?list=true');
+                if (!res.ok) throw new Error("List failed");
                 const blobs = await res.json();
-                const list = document.getElementById('file-list');
-                list.innerHTML = "";
+                
+                const listContainer = document.getElementById('file-list');
+                listContainer.innerHTML = "";
+                
                 blobs.forEach(blob => {
                     const div = document.createElement('div');
                     div.className = 'file-item';
                     div.innerText = blob.pathname;
                     div.onclick = () => openFile(blob, div);
-                    list.appendChild(div);
+                    listContainer.appendChild(div);
                 });
-            } catch (e) { console.error("Load files failed"); }
+            } catch (e) {
+                console.error("Error loading file list:", e);
+            }
         }
 
-        async function openFile(blob, el) {
+        async function openFile(blob, element) {
             const loader = document.getElementById('loader');
             loader.style.display = "block";
             try {
                 const res = await fetch(blob.url);
                 const content = await res.text();
+
+                document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+                element.classList.add('active');
+
+                const ext = blob.pathname.split('.').pop();
+                const lang = ext === 'js' ? 'javascript' : (ext === 'css' ? 'css' : 'html');
+                
+                monaco.editor.setModelLanguage(editor.getModel(), lang);
                 editor.setValue(content);
-                document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
-                el.classList.add('active');
                 currentFile = blob.pathname;
-                const ext = currentFile.split('.').pop();
-                monaco.editor.setModelLanguage(editor.getModel(), ext === 'js' ? 'javascript' : ext);
-            } catch (e) { alert("Load failed"); }
-            loader.style.display = "none";
+            } catch (err) {
+                alert("Could not load file.");
+            } finally {
+                loader.style.display = "none";
+            }
         }
 
+        // New File Logic
         document.getElementById('new-file-btn').onclick = async () => {
             const fileName = prompt("New file name (e.g. index.html):");
             if (!fileName) return;
@@ -115,26 +228,38 @@
                 const res = await fetch('/api/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: fileName, content: "" })
+                    body: JSON.stringify({ name: fileName, content: " " }) // Space prevents Blob error
                 });
-                if (res.ok) await loadFiles();
-                else alert("Error creating file");
-            } catch (e) { alert("Creation failed"); }
+                
+                if (res.ok) {
+                    await loadFiles();
+                } else {
+                    const err = await res.json();
+                    alert("Error: " + (err.error || "Unknown"));
+                }
+            } catch (e) {
+                alert("Network error.");
+            }
             loader.style.display = "none";
         };
 
+        // Save Logic
         document.getElementById('save-btn').onclick = async () => {
             if (!currentFile) return;
             const loader = document.getElementById('loader');
             loader.style.display = "block";
+            
             try {
                 const res = await fetch('/api/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: currentFile, content: editor.getValue() })
                 });
-                if (!res.ok) alert("Save failed");
-            } catch (e) { alert("Save failed"); }
+                
+                if (!res.ok) throw new Error("Save failed");
+            } catch (e) {
+                alert("Error saving file.");
+            }
             loader.style.display = "none";
         };
     </script>
