@@ -12,31 +12,31 @@
     <iframe id="output"></iframe>
     <script>
         const params = new URLSearchParams(window.location.search);
-        const fileName = params.get('file') || 'index.html';
+        const targetName = params.get('file') || 'index.html';
         const iframe = document.getElementById('output');
-        let lastContent = "";
+        let lastUrl = "";
 
-        async function updatePreview() {
+        async function poll() {
             try {
-                const listRes = await fetch('/api/action?list=true');
-                const blobs = await listRes.json();
-                const fileBlob = blobs.find(b => b.pathname === fileName);
+                const res = await fetch('/api/action?list=true');
+                const blobs = await res.json();
+                
+                // Filtrujemy po nazwie i bierzemy NAJNOWSZY plik (data uploadu)
+                const latest = blobs
+                    .filter(b => b.pathname === targetName)
+                    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
 
-                if (fileBlob) {
-                    const contentRes = await fetch(`${fileBlob.url}?t=${Date.now()}`);
-                    const currentContent = await contentRes.text();
-
-                    if (currentContent !== lastContent) {
-                        lastContent = currentContent;
-                        iframe.srcdoc = currentContent;
-                    }
+                if (latest && latest.url !== lastUrl) {
+                    lastUrl = latest.url;
+                    // Pobieramy surowy kod i wstrzykujemy przez srcdoc
+                    const contentRes = await fetch(latest.url + '?t=' + Date.now());
+                    iframe.srcdoc = await contentRes.text();
                 }
             } catch (e) {}
         }
 
-        // Sprawdzanie zmian co sekundę
-        setInterval(updatePreview, 1000);
-        updatePreview();
+        setInterval(poll, 1000);
+        poll();
     </script>
 </body>
 </html>
