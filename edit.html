@@ -50,7 +50,7 @@
                 div.innerHTML = `<span style="flex-grow:1" onclick="openF('${b.pathname}', '${b.url}')">${b.pathname}</span>`;
                 if(b.pathname !== 'index.html') {
                     const btn = document.createElement('span'); btn.className='delete-btn'; btn.innerHTML='&times;';
-                    btn.onclick = () => remove(b); div.appendChild(btn);
+                    btn.onclick = (e) => { e.stopPropagation(); remove(b); }; div.appendChild(btn);
                 }
                 list.appendChild(div);
             });
@@ -58,7 +58,8 @@
 
         async function openF(name, url) {
             currentFile = name;
-            const res = await fetch(`${url}?t=${Date.now()}`);
+            const proxyUrl = `/api/action?getFileContents=true&url=${encodeURIComponent(url)}&t=${Date.now()}`;
+            const res = await fetch(proxyUrl);
             editor.setValue(await res.text());
             load();
         }
