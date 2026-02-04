@@ -1,111 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Editor</title>
+    <meta charset="UTF-8"><title>Editor</title>
     <style>
         :root { --sidebar-bg: #252526; --editor-bg: #1e1e1e; --text-color: #cccccc; --accent: #007acc; --danger: #f14c4c; }
         body { margin: 0; display: flex; height: 100vh; background: var(--editor-bg); font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
         #sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid #333; display: flex; flex-direction: column; }
         .sidebar-header { padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        #new-file-btn { background: none; border: none; color: var(--text-color); cursor: pointer; font-size: 20px; }
-        #file-list { overflow-y: auto; flex-grow: 1; }
+        #file-list { flex-grow: 1; overflow-y: auto; }
         .file-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; cursor: pointer; font-size: 13px; color: var(--text-color); border-bottom: 1px solid #2d2d2d; }
-        .file-item:hover { background: #2a2d2e; }
         .file-item.active { background: #37373d; color: white; }
-        .delete-btn { color: var(--danger); font-size: 18px; opacity: 0; cursor: pointer; padding: 0 5px; }
+        .delete-btn { color: var(--danger); font-size: 18px; opacity: 0; cursor: pointer; }
         .file-item:hover .delete-btn { opacity: 1; }
         #main { flex-grow: 1; position: relative; }
         #editor { height: 100%; width: 100%; }
         .toolbar { position: absolute; top: 15px; right: 25px; z-index: 100; display: flex; gap: 10px; }
-        button.action-btn { border: none; padding: 8px 15px; border-radius: 2px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; }
+        button { border: none; padding: 8px 15px; border-radius: 2px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; background: var(--accent); }
         #preview-btn { background: #3a3d41; }
-        #save-btn { background: var(--accent); }
     </style>
 </head>
 <body>
     <div id="sidebar">
-        <div class="sidebar-header"><h3>Explorer</h3><button id="new-file-btn">+</button></div>
+        <div class="sidebar-header"><h3>Explorer</h3><button onclick="addFile()">+</button></div>
         <div id="file-list"></div>
     </div>
     <div id="main">
-        <div class="toolbar"><button id="preview-btn" class="action-btn">Preview</button><button id="save-btn" class="action-btn">Save</button></div>
+        <div class="toolbar"><button id="preview-btn" onclick="preview()">Preview</button><button onclick="save()">Save</button></div>
         <div id="editor"></div>
     </div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/emmet-monaco-es/dist/emmet-monaco.min.js"></script>
     <script>
-        let editor, currentFile = null, allBlobs = [];
+        let editor, currentFile = null;
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
         require(['vs/editor/editor.main'], () => {
             editor = monaco.editor.create(document.getElementById('editor'), {
-                value: "", language: 'html', theme: 'vs-dark', automaticLayout: true, fontSize: 14, minimap: { enabled: false }, contextmenu: false
+                value: "", language: 'html', theme: 'vs-dark', automaticLayout: true, contextmenu: false
             });
-            if (typeof emmetMonaco !== 'undefined') emmetMonaco.emmetHTML(monaco);
             load();
         });
 
         async function load() {
             const res = await fetch('/api/action?list=true');
-            allBlobs = await res.json();
+            const blobs = await res.json();
             const list = document.getElementById('file-list');
             list.innerHTML = "";
-            
-            // Grupowanie unikalnych nazw (pokazujemy tylko najnowszy plik o danej nazwie)
-            const uniqueFiles = {};
-            allBlobs.forEach(b => {
-                const name = b.pathname.replace(/-[a-zA-Z0-9]+\./, '.'); // uproszczone mapowanie nazwy
-                // w rzeczywistości Vercel przyrostek dodaje przed kropką, ale pathname w liście zostaje czytelny
-                if (!uniqueFiles[b.pathname] || new Date(b.uploadedAt) > new Date(uniqueFiles[b.pathname].uploadedAt)) {
-                    uniqueFiles[b.pathname] = b;
-                }
-            });
-
-            Object.values(uniqueFiles).forEach(b => {
+            blobs.forEach(b => {
                 const div = document.createElement('div');
                 div.className = 'file-item' + (currentFile === b.pathname ? ' active' : '');
-                div.innerHTML = `<span style="flex-grow:1">${b.pathname}</span>`;
+                div.innerHTML = `<span style="flex-grow:1" onclick="openF('${b.pathname}', '${b.url}')">${b.pathname}</span>`;
                 if(b.pathname !== 'index.html') {
-                    const delBtn = document.createElement('span');
-                    delBtn.className = 'delete-btn'; delBtn.innerHTML = '&times;';
-                    delBtn.onclick = (e) => { e.stopPropagation(); remove(b); };
-                    div.appendChild(delBtn);
+                    const btn = document.createElement('span'); btn.className='delete-btn'; btn.innerHTML='&times;';
+                    btn.onclick = () => remove(b); div.appendChild(btn);
                 }
-                div.onclick = () => open(b, div);
                 list.appendChild(div);
             });
         }
 
-        async function open(b, el) {
-            const res = await fetch(`${b.url}?t=${Date.now()}`);
+        async function openF(name, url) {
+            currentFile = name;
+            const res = await fetch(`${url}?t=${Date.now()}`);
             editor.setValue(await res.text());
-            currentFile = b.pathname;
-            document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
-            el.classList.add('active');
-            const ext = b.pathname.split('.').pop();
-            monaco.editor.setModelLanguage(editor.getModel(), ext === 'js' ? 'javascript' : (ext === 'css' ? 'css' : 'html'));
+            load();
         }
 
-        document.getElementById('save-btn').onclick = async () => {
+        async function save() {
             if(!currentFile) return;
             await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: currentFile, content: editor.getValue() }) });
-            load();
-        };
+        }
 
-        document.getElementById('preview-btn').onclick = () => {
+        function preview() {
             if(currentFile) window.open(`preview.html?file=${encodeURIComponent(currentFile)}`, '_blank');
-        };
+        }
 
-        document.getElementById('new-file-btn').onclick = async () => {
+        async function addFile() {
             const n = prompt("Name:");
             if(n) { await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: n, content: " " }) }); load(); }
-        };
+        }
 
         async function remove(b) {
-            if(confirm("Delete all versions?")) {
-                const versions = allBlobs.filter(x => x.pathname === b.pathname);
-                for(const v of versions) { await fetch(`/api/action?url=${encodeURIComponent(v.url)}&name=${v.pathname}`, { method: 'DELETE' }); }
+            if(confirm("Delete?")) {
+                await fetch(`/api/action?url=${encodeURIComponent(b.url)}&name=${b.pathname}`, { method: 'DELETE' });
                 load();
             }
         }
