@@ -48,20 +48,17 @@
                 language: 'html', 
                 theme: 'vs-dark', 
                 automaticLayout: true,
-                contextmenu: false,
+                contextmenu: true,        // PRZYWRÓCONE: prawy klik działa
                 fontSize: 14,
-                // --- TU SĄ ZMIANY DLA "NORMALNYCH" ---
-                tabSize: 4,               // Tab to 4 spacje
-                insertSpaces: true,       // Zawsze wstawiaj spacje zamiast znaku tabulacji
-                detectIndentation: false, // Nie próbuj zgadywać (wymuś 4)
-                renderWhitespace: 'none', // Możesz zmienić na 'all' jeśli chcesz widzieć kropki
-                // -------------------------------------
-                minimap: { enabled: false }
+                tabSize: 4,               // 4 spacje
+                insertSpaces: true,       
+                detectIndentation: false, 
+                minimap: { enabled: false },
+                unicodeHighlight: { ambiguousCharacters: false } // Zapobiega dziwnym ramkom wokół znaków specjalnych
             });
 
             if (typeof emmetMonaco !== 'undefined') emmetMonaco.emmetHTML(monaco);
 
-            // Skrót klawiszowy Ctrl+S (lub Cmd+S)
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
                 save();
             });
@@ -102,9 +99,10 @@
         async function save() {
             if(!currentFile) return;
             const btn = document.querySelector('button[onclick="save()"]');
+            const oldText = btn.innerText;
             btn.innerText = "Saving...";
             await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: currentFile, content: editor.getValue() }) });
-            btn.innerText = "Save";
+            btn.innerText = oldText;
         }
 
         function preview() {
