@@ -11,87 +11,17 @@
             --accent: #007acc; 
             --danger: #f14c4c; 
         }
-        
-        body { 
-            margin: 0; 
-            display: flex; 
-            height: 100vh; 
-            background: var(--editor-bg); 
-            font-family: 'Segoe UI', sans-serif; 
-            color: white; 
-            overflow: hidden; 
-        }
-
-        /* SIDEBAR: min-width zapobiega psuciu się przy małym oknie */
-        #sidebar { 
-            width: 260px; 
-            min-width: 200px; 
-            background: var(--sidebar-bg); 
-            border-right: 1px solid #333; 
-            display: flex; 
-            flex-direction: column; 
-            flex-shrink: 0; 
-        }
-
-        .sidebar-header { 
-            padding: 15px; 
-            border-bottom: 1px solid #333; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-        }
-
+        body { margin: 0; display: flex; height: 100vh; background: var(--editor-bg); font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
+        #sidebar { width: 260px; min-width: 200px; background: var(--sidebar-bg); border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         #file-list { flex-grow: 1; overflow-y: auto; overflow-x: hidden; }
-
-        .file-item { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 10px 15px; 
-            cursor: pointer; 
-            font-size: 13px; 
-            color: var(--text-color); 
-            border-bottom: 1px solid #2d2d2d;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
+        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; cursor: pointer; font-size: 13px; color: var(--text-color); border-bottom: 1px solid #2d2d2d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .file-item.active { background: #37373d; color: white; }
         .delete-btn { color: var(--danger); font-size: 18px; opacity: 0; cursor: pointer; padding-left: 10px; }
         .file-item:hover .delete-btn { opacity: 1; }
-
-        #main { 
-            flex-grow: 1; 
-            position: relative; 
-            display: flex; 
-            flex-direction: column; 
-            min-width: 0; /* Kluczowe dla Monaco w flexboxie */
-        }
-
-        /* TOOLBAR: flex-wrap sprawia, że przyciski się nie psują przy ściskaniu */
-        .toolbar { 
-            padding: 10px 20px;
-            background: rgba(30, 30, 30, 0.8);
-            display: flex; 
-            gap: 10px; 
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            border-bottom: 1px solid #333;
-        }
-
-        button { 
-            border: none; 
-            padding: 6px 12px; 
-            border-radius: 2px; 
-            cursor: pointer; 
-            font-size: 12px; 
-            font-weight: bold; 
-            color: white; 
-            background: var(--accent);
-            white-space: nowrap;
-        }
-
+        #main { flex-grow: 1; position: relative; display: flex; flex-direction: column; min-width: 0; }
+        .toolbar { padding: 10px 20px; background: #1e1e1e; display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; border-bottom: 1px solid #333; }
+        button { border: none; padding: 6px 12px; border-radius: 2px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; background: var(--accent); white-space: nowrap; }
         #preview-btn { background: #3a3d41; }
         #editor { flex-grow: 1; width: 100%; height: 100%; }
     </style>
@@ -99,7 +29,7 @@
 <body>
     <div id="sidebar">
         <div class="sidebar-header">
-            <h3 style="margin:0; font-size:12px; opacity:0.7">EXPLORER</h3>
+            <h3 style="margin:0; font-size:11px; opacity:0.7; letter-spacing:1px;">EXPLORER</h3>
             <button onclick="addFile()" style="padding: 2px 8px;">+</button>
         </div>
         <div id="file-list"></div>
@@ -113,24 +43,34 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/emmet-monaco-es/dist/emmet-monaco.min.js"></script>
+
     <script>
         let editor, currentFile = null;
+        
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
-        require(['vs/editor/editor.main'], () => {
+        
+        require(['vs/editor/editor.main'], function() {
+            // Inicjalizacja edytora
             editor = monaco.editor.create(document.getElementById('editor'), {
                 value: "", 
                 language: 'html', 
                 theme: 'vs-dark', 
-                automaticLayout: true, // Automatyczne dopasowanie do rodzica
+                automaticLayout: true,
                 contextmenu: false,
-                padding: { top: 10 }
+                fontSize: 14,
+                tabSize: 2
             });
+
+            // AKTYWACJA EMMET (to naprawia "!")
+            if (typeof emmetMonaco !== 'undefined') {
+                emmetMonaco.emmetHTML(monaco);
+                console.log("Emmet loaded!");
+            }
+
             load();
 
-            // Dodatkowy bezpiecznik - wymuszamy layout przy zmianie okna
-            window.addEventListener('resize', () => {
-                editor.layout();
-            });
+            window.addEventListener('resize', () => editor.layout());
         });
 
         async function load() {
@@ -155,13 +95,24 @@
             currentFile = name;
             const proxyUrl = `/api/action?getFileContents=true&url=${encodeURIComponent(url)}&t=${Date.now()}`;
             const res = await fetch(proxyUrl);
-            editor.setValue(await res.text());
+            const content = await res.text();
+            
+            editor.setValue(content);
+            
+            // Zmiana kolorowania składni
+            const ext = name.split('.').pop();
+            const lang = ext === 'js' ? 'javascript' : (ext === 'css' ? 'css' : 'html');
+            monaco.editor.setModelLanguage(editor.getModel(), lang);
+            
             load();
         }
 
         async function save() {
             if(!currentFile) return;
-            await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: currentFile, content: editor.getValue() }) });
+            await fetch('/api/action', { 
+                method: 'POST', 
+                body: JSON.stringify({ name: currentFile, content: editor.getValue() }) 
+            });
         }
 
         function preview() {
@@ -170,7 +121,10 @@
 
         async function addFile() {
             const n = prompt("Name:");
-            if(n) { await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: n, content: " " }) }); load(); }
+            if(n) { 
+                await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: n, content: " " }) }); 
+                load(); 
+            }
         }
 
         async function remove(b) {
