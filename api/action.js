@@ -3,10 +3,7 @@ import { put, list, del } from '@vercel/blob';
 function getContentType(filename) {
     const ext = filename.split('.').pop().toLowerCase();
     const types = {
-        'html': 'text/html',
-        'css': 'text/css',
-        'js': 'application/javascript',
-        'json': 'application/json'
+        'html': 'text/html', 'css': 'text/css', 'js': 'application/javascript', 'json': 'application/json'
     };
     return types[ext] || 'text/plain';
 }
@@ -23,10 +20,11 @@ export default async function handler(req, res) {
         if (req.method === 'POST') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { name, content } = body;
+
+            // addRandomSuffix: true gwarantuje, że cache Vercela nas nie oszuka
             const blob = await put(name, content || " ", {
                 access: 'public',
-                addRandomSuffix: false,
-                allowOverwrite: true,
+                addRandomSuffix: true, 
                 cacheControlMaxAge: 0,
                 contentType: getContentType(name)
             });
