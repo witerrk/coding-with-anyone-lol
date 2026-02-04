@@ -19,11 +19,9 @@
                 const file = blobs.find(b => b.pathname === targetName);
 
                 if (file) {
-                    // Klucz: force-cache i unikalny t sprawiają, że pobieramy nową wersję
-                    const contentRes = await fetch(`${file.url}?t=${Date.now()}`, { 
-                        cache: 'no-store',
-                        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
-                    });
+                    // Używamy Proxy API zamiast bezpośredniego linku do Bloba
+                    const proxyUrl = `/api/action?getFileContents=true&url=${encodeURIComponent(file.url)}&t=${Date.now()}`;
+                    const contentRes = await fetch(proxyUrl);
                     const code = await contentRes.text();
 
                     if (code !== lastContent) {
