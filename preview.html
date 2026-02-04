@@ -1,12 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Preview</title>
-    <style>
-        body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: #fff; }
-        iframe { border: none; width: 100%; height: 100%; display: block; }
-    </style>
+    <meta charset="UTF-8"><title>Preview</title>
+    <style>body,html,iframe { margin:0; padding:0; height:100vh; width:100vw; border:none; overflow:hidden; background:#fff; }</style>
 </head>
 <body>
     <iframe id="output"></iframe>
@@ -14,23 +10,26 @@
         const params = new URLSearchParams(window.location.search);
         const targetName = params.get('file') || 'index.html';
         const iframe = document.getElementById('output');
-        let lastUrl = "";
+        let lastContent = "";
 
         async function poll() {
             try {
                 const res = await fetch('/api/action?list=true');
                 const blobs = await res.json();
-                
-                // Filtrujemy po nazwie i bierzemy NAJNOWSZY plik (data uploadu)
-                const latest = blobs
-                    .filter(b => b.pathname === targetName)
-                    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
+                const file = blobs.find(b => b.pathname === targetName);
 
-                if (latest && latest.url !== lastUrl) {
-                    lastUrl = latest.url;
-                    // Pobieramy surowy kod i wstrzykujemy przez srcdoc
-                    const contentRes = await fetch(latest.url + '?t=' + Date.now());
-                    iframe.srcdoc = await contentRes.text();
+                if (file) {
+                    // Klucz: force-cache i unikalny t sprawiają, że pobieramy nową wersję
+                    const contentRes = await fetch(`${file.url}?t=${Date.now()}`, { 
+                        cache: 'no-store',
+                        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+                    });
+                    const code = await contentRes.text();
+
+                    if (code !== lastContent) {
+                        lastContent = code;
+                        iframe.srcdoc = code;
+                    }
                 }
             } catch (e) {}
         }
