@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Editor</title>
+    <title>Editor</title>
     <style>
         :root { 
             --sidebar-bg: #252526; 
@@ -34,7 +34,6 @@
     </style>
 </head>
 <body>
-
     <div id="sidebar">
         <div class="sidebar-header">
             <h3>Explorer</h3>
@@ -42,7 +41,6 @@
         </div>
         <div id="file-list"></div>
     </div>
-    
     <div id="main-container">
         <div class="toolbar">
             <button id="preview-btn" class="action-btn">Preview</button>
@@ -54,19 +52,15 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/emmet-monaco-es/dist/emmet-monaco.min.js"></script>
-
     <script>
         let editor, currentFile = null, currentBlobs = [];
-
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
-
         require(['vs/editor/editor.main'], function () {
             editor = monaco.editor.create(document.getElementById('editor'), {
                 value: "", language: 'html', theme: 'vs-dark',
                 automaticLayout: true, fontSize: 14, minimap: { enabled: false },
-                contextmenu: false // PRZYWRACA PRAWY PRZYCISK MYSZY PRZEGLĄDARKI
+                contextmenu: false // PRAWY PRZYCISK MYSZY ODBLOKOWANY
             });
-
             if (typeof emmetMonaco !== 'undefined') emmetMonaco.emmetHTML(monaco);
             loadFiles();
         });
@@ -77,17 +71,14 @@
                 currentBlobs = await res.json();
                 const listContainer = document.getElementById('file-list');
                 listContainer.innerHTML = "";
-                
                 currentBlobs.forEach(blob => {
                     const div = document.createElement('div');
                     div.className = 'file-item' + (currentFile === blob.pathname ? ' active' : '');
-                    
                     const nameSpan = document.createElement('span');
                     nameSpan.innerText = blob.pathname;
                     nameSpan.style.flexGrow = "1";
                     nameSpan.onclick = () => openFile(blob, div);
                     div.appendChild(nameSpan);
-
                     if (blob.pathname !== 'index.html') {
                         const delBtn = document.createElement('span');
                         delBtn.className = 'delete-btn';
@@ -97,25 +88,19 @@
                     }
                     listContainer.appendChild(div);
                 });
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         }
 
         async function openFile(blob, element) {
             document.getElementById('loader').style.display = "block";
-            try {
-                const res = await fetch(`${blob.url}?t=${Date.now()}`);
-                const content = await res.text();
-                
-                document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
-                element.classList.add('active');
-
-                const ext = blob.pathname.split('.').pop();
-                const lang = ext === 'js' ? 'javascript' : (ext === 'css' ? 'css' : 'html');
-                monaco.editor.setModelLanguage(editor.getModel(), lang);
-                
-                editor.setValue(content);
-                currentFile = blob.pathname;
-            } catch (err) { alert("Error loading"); }
+            const res = await fetch(`${blob.url}?t=${Date.now()}`);
+            const content = await res.text();
+            document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            const ext = blob.pathname.split('.').pop();
+            monaco.editor.setModelLanguage(editor.getModel(), ext === 'js' ? 'javascript' : (ext === 'css' ? 'css' : 'html'));
+            editor.setValue(content);
+            currentFile = blob.pathname;
             document.getElementById('loader').style.display = "none";
         }
 
@@ -132,29 +117,24 @@
 
         document.getElementById('preview-btn').onclick = () => {
             if (!currentFile) return;
-            const file = currentBlobs.find(b => b.pathname === currentFile);
-            if (file) {
-                // download=false zapobiega pobieraniu pliku HTML
-                window.open(`${file.url}?download=false&t=${Date.now()}`, '_blank');
-            }
+            // Otwiera nowy system preview oparty na srcdoc
+            window.open(`preview.html?file=${encodeURIComponent(currentFile)}`, '_blank');
         };
 
         document.getElementById('new-file-btn').onclick = async () => {
             const fileName = prompt("File name:");
-            if (!fileName) return;
-            await fetch('/api/action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: fileName, content: " " })
-            });
-            loadFiles();
+            if (fileName) {
+                await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: fileName, content: " " }) });
+                loadFiles();
+            }
         };
 
         async function deleteFile(blob) {
-            if (!confirm("Delete?")) return;
-            await fetch(`/api/action?url=${encodeURIComponent(blob.url)}&name=${blob.pathname}`, { method: 'DELETE' });
-            if (currentFile === blob.pathname) { editor.setValue(""); currentFile = null; }
-            loadFiles();
+            if (confirm("Delete?")) {
+                await fetch(`/api/action?url=${encodeURIComponent(blob.url)}&name=${blob.pathname}`, { method: 'DELETE' });
+                if (currentFile === blob.pathname) { editor.setValue(""); currentFile = null; }
+                loadFiles();
+            }
         }
     </script>
 </body>
