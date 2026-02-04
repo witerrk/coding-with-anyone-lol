@@ -1,7 +1,7 @@
 import { put, list } from '@vercel/blob';
 
 export default async function handler(req, res) {
-    // 1. LISTOWANIE PLIKÓW
+    // LISTOWANIE
     if (req.method === 'GET' && req.query.list === 'true') {
         try {
             const { blobs } = await list();
@@ -11,13 +11,17 @@ export default async function handler(req, res) {
         }
     }
 
-    // 2. ZAPISYWANIE PLIKÓW
+    // TWORZENIE I ZAPISYWANIE (POST)
     if (req.method === 'POST') {
         try {
-            const { name, content } = JSON.parse(req.body);
+            const body = JSON.parse(req.body);
+            const { name, content } = body;
+            
+            if (!name) return res.status(400).send("Name is required");
+
             const blob = await put(name, content, {
                 access: 'public',
-                addRandomSuffix: false,
+                addRandomSuffix: false, // Nadpisuje jeśli plik o tej nazwie istnieje
             });
             return res.status(200).json(blob);
         } catch (e) {
