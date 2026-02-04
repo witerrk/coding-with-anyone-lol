@@ -12,118 +12,21 @@
             --active-item: #37373d;
             --accent: #007acc;
         }
-
-        body { 
-            margin: 0; 
-            display: flex; 
-            height: 100vh; 
-            background: var(--editor-bg); 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            color: white; 
-            overflow: hidden;
-        }
-        
-        /* Sidebar */
-        #sidebar { 
-            width: 260px; 
-            background: var(--sidebar-bg); 
-            border-right: 1px solid #333; 
-            display: flex;
-            flex-direction: column;
-            user-select: none;
-        }
-
-        .sidebar-header {
-            padding: 15px;
-            border-bottom: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        #sidebar h3 { 
-            font-size: 11px; 
-            margin: 0; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            opacity: 0.6; 
-        }
-
-        #new-file-btn {
-            background: none;
-            border: none;
-            color: var(--text-color);
-            cursor: pointer;
-            font-size: 20px;
-            line-height: 1;
-            padding: 0 5px;
-            transition: color 0.2s;
-        }
-
+        body { margin: 0; display: flex; height: 100vh; background: var(--editor-bg); font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
+        #sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid #333; display: flex; flex-direction: column; user-select: none; }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        #sidebar h3 { font-size: 11px; margin: 0; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
+        #new-file-btn { background: none; border: none; color: var(--text-color); cursor: pointer; font-size: 20px; padding: 0 5px; }
         #new-file-btn:hover { color: white; }
-
-        #file-list {
-            overflow-y: auto;
-            flex-grow: 1;
-        }
-
-        .file-item { 
-            padding: 10px 20px; 
-            cursor: pointer; 
-            font-size: 13px; 
-            color: var(--text-color);
-            border-bottom: 1px solid #2d2d2d;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
+        #file-list { overflow-y: auto; flex-grow: 1; }
+        .file-item { padding: 10px 20px; cursor: pointer; font-size: 13px; color: var(--text-color); border-bottom: 1px solid #2d2d2d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .file-item:hover { background: #2a2d2e; }
-        .file-item.active { 
-            background: var(--active-item); 
-            color: white; 
-        }
-
-        /* Editor Area */
-        #main-container {
-            flex-grow: 1;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-
+        .file-item.active { background: var(--active-item); color: white; }
+        #main-container { flex-grow: 1; position: relative; display: flex; flex-direction: column; }
         #editor { flex-grow: 1; }
-
-        #save-btn {
-            position: absolute;
-            top: 15px;
-            right: 25px;
-            z-index: 100;
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 8px 18px;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
+        #save-btn { position: absolute; top: 15px; right: 25px; z-index: 100; background: var(--accent); color: white; border: none; padding: 8px 18px; border-radius: 2px; cursor: pointer; font-size: 12px; font-weight: bold; }
         #save-btn:hover { background: #0062a3; }
-
-        #loader {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(0,0,0,0.8);
-            color: #fff;
-            padding: 6px 15px;
-            font-size: 12px;
-            display: none;
-            border: 1px solid #444;
-            border-radius: 2px;
-        }
+        #loader { position: absolute; top: 20px; left: 20px; z-index: 1000; background: rgba(0,0,0,0.8); color: #fff; padding: 6px 15px; font-size: 12px; display: none; border: 1px solid #444; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -158,30 +61,20 @@
                 automaticLayout: true,
                 tabSize: 4,
                 insertSpaces: true,
-                detectIndentation: false,
-                contextmenu: false,
                 fontSize: 14,
                 minimap: { enabled: false }
             });
 
-            // Initialize Emmet
-            if (typeof emmetMonaco !== 'undefined') {
-                emmetMonaco.emmetHTML(monaco);
-            }
-
-            // Initial load
+            if (typeof emmetMonaco !== 'undefined') emmetMonaco.emmetHTML(monaco);
             loadFiles();
         });
 
         async function loadFiles() {
             try {
                 const res = await fetch('/api/action?list=true');
-                if (!res.ok) throw new Error("List failed");
                 const blobs = await res.json();
-                
                 const listContainer = document.getElementById('file-list');
                 listContainer.innerHTML = "";
-                
                 blobs.forEach(blob => {
                     const div = document.createElement('div');
                     div.className = 'file-item';
@@ -189,16 +82,16 @@
                     div.onclick = () => openFile(blob, div);
                     listContainer.appendChild(div);
                 });
-            } catch (e) {
-                console.error("Error loading file list:", e);
-            }
+            } catch (e) { console.error("Load failed", e); }
         }
 
         async function openFile(blob, element) {
             const loader = document.getElementById('loader');
             loader.style.display = "block";
             try {
-                const res = await fetch(blob.url);
+                // CACHE BUSTING: Dodajemy timestamp, aby zawsze pobierać nową wersję
+                const freshUrl = `${blob.url}?t=${Date.now()}`;
+                const res = await fetch(freshUrl);
                 const content = await res.text();
 
                 document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
@@ -210,56 +103,42 @@
                 monaco.editor.setModelLanguage(editor.getModel(), lang);
                 editor.setValue(content);
                 currentFile = blob.pathname;
-            } catch (err) {
-                alert("Could not load file.");
-            } finally {
-                loader.style.display = "none";
-            }
+            } catch (err) { alert("Load failed"); }
+            loader.style.display = "none";
         }
 
-        // New File Logic
         document.getElementById('new-file-btn').onclick = async () => {
-            const fileName = prompt("New file name (e.g. index.html):");
+            const fileName = prompt("New file name:");
             if (!fileName) return;
-
             const loader = document.getElementById('loader');
             loader.style.display = "block";
             try {
                 const res = await fetch('/api/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: fileName, content: " " }) // Space prevents Blob error
+                    body: JSON.stringify({ name: fileName, content: " " })
                 });
-                
-                if (res.ok) {
-                    await loadFiles();
-                } else {
-                    const err = await res.json();
-                    alert("Error: " + (err.error || "Unknown"));
-                }
-            } catch (e) {
-                alert("Network error.");
-            }
+                if (res.ok) await loadFiles();
+            } catch (e) { alert("Error"); }
             loader.style.display = "none";
         };
 
-        // Save Logic
         document.getElementById('save-btn').onclick = async () => {
             if (!currentFile) return;
             const loader = document.getElementById('loader');
             loader.style.display = "block";
-            
             try {
                 const res = await fetch('/api/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: currentFile, content: editor.getValue() })
                 });
-                
-                if (!res.ok) throw new Error("Save failed");
-            } catch (e) {
-                alert("Error saving file.");
-            }
+                if (res.ok) {
+                    console.log("Saved!");
+                    // Opcjonalnie przeładowujemy listę, by zaktualizować URL-e
+                    await loadFiles();
+                }
+            } catch (e) { alert("Save failed"); }
             loader.style.display = "none";
         };
     </script>
