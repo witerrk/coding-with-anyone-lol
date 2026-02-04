@@ -2,102 +2,198 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editor</title>
     <style>
-        :root { --bg: #1e1e1e; --sidebar: #252526; --text: #ccc; --accent: #007acc; }
-        body { margin: 0; display: flex; height: 100vh; background: var(--bg); font-family: sans-serif; color: white; overflow: hidden; }
-        #sidebar { width: 250px; background: var(--sidebar); border-right: 1px solid #333; display: flex; flex-direction: column; }
-        .header { padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #333; font-size: 12px; }
-        #file-list { flex-grow: 1; overflow-y: auto; }
-        .file-item { padding: 8px 15px; cursor: pointer; display: flex; justify-content: space-between; font-size: 13px; border-bottom: 1px solid #2d2d2d; }
+        :root { 
+            --sidebar-bg: #252526; 
+            --editor-bg: #1e1e1e; 
+            --text-color: #cccccc; 
+            --active-item: #37373d;
+            --accent: #007acc;
+            --danger: #f14c4c;
+        }
+
+        body { 
+            margin: 0; display: flex; height: 100vh; 
+            background: var(--editor-bg); font-family: 'Segoe UI', sans-serif; 
+            color: white; overflow: hidden;
+        }
+        
+        #sidebar { 
+            width: 260px; background: var(--sidebar-bg); 
+            border-right: 1px solid #333; display: flex; flex-direction: column; 
+        }
+
+        .sidebar-header {
+            padding: 15px; border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        #sidebar h3 { font-size: 11px; margin: 0; text-transform: uppercase; opacity: 0.6; }
+
+        #new-file-btn {
+            background: none; border: none; color: var(--text-color);
+            cursor: pointer; font-size: 20px;
+        }
+
+        #file-list { overflow-y: auto; flex-grow: 1; }
+
+        .file-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 20px; cursor: pointer; font-size: 13px; 
+            color: var(--text-color); border-bottom: 1px solid #2d2d2d;
+        }
         .file-item:hover { background: #2a2d2e; }
-        .file-item.active { background: #37373d; }
-        .del-btn { color: #f44; opacity: 0; }
-        .file-item:hover .del-btn { opacity: 1; }
-        #main { flex-grow: 1; position: relative; }
-        .toolbar { position: absolute; top: 10px; right: 20px; z-index: 10; display: flex; gap: 5px; }
-        button { background: var(--accent); color: white; border: none; padding: 5px 12px; cursor: pointer; font-size: 12px; }
-        #preview-btn { background: #444; }
-        #editor { height: 100%; width: 100%; }
+        .file-item.active { background: var(--active-item); color: white; }
+
+        .delete-btn {
+            color: var(--danger); font-size: 18px; opacity: 0;
+            cursor: pointer; padding: 0 5px;
+        }
+        .file-item:hover .delete-btn { opacity: 1; }
+
+        #main-container { flex-grow: 1; position: relative; display: flex; flex-direction: column; }
+        #editor { flex-grow: 1; }
+
+        .toolbar {
+            position: absolute; top: 15px; right: 25px; 
+            z-index: 100; display: flex; gap: 10px;
+        }
+
+        button.action-btn {
+            border: none; padding: 8px 15px; border-radius: 2px;
+            cursor: pointer; font-size: 12px; font-weight: bold; color: white;
+        }
+
+        #preview-btn { background: #3a3d41; }
+        #save-btn { background: var(--accent); }
+
+        #loader {
+            position: absolute; top: 20px; left: 20px; z-index: 1000;
+            background: rgba(0,0,0,0.8); padding: 6px 15px; 
+            font-size: 12px; display: none; border: 1px solid #444;
+        }
     </style>
 </head>
 <body>
+
     <div id="sidebar">
-        <div class="header">EXPLORER <span id="add" style="cursor:pointer">+</span></div>
+        <div class="sidebar-header">
+            <h3>Explorer</h3>
+            <button id="new-file-btn">+</button>
+        </div>
         <div id="file-list"></div>
     </div>
-    <div id="main">
+    
+    <div id="main-container">
         <div class="toolbar">
-            <button id="preview-btn">Preview</button>
-            <button id="save-btn">Save</button>
+            <button id="preview-btn" class="action-btn">Preview</button>
+            <button id="save-btn" class="action-btn">Save</button>
         </div>
+        <div id="loader">Processing...</div>
         <div id="editor"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/emmet-monaco-es/dist/emmet-monaco.min.js"></script>
+
     <script>
-        let editor, currentFile = null, blobs = [];
+        let editor, currentFile = null, currentBlobs = [];
+
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
-        require(['vs/editor/editor.main'], () => {
+
+        require(['vs/editor/editor.main'], function () {
             editor = monaco.editor.create(document.getElementById('editor'), {
-                value: "", language: 'html', theme: 'vs-dark', automaticLayout: true
+                value: "", language: 'html', theme: 'vs-dark',
+                automaticLayout: true, fontSize: 14, minimap: { enabled: false }
             });
-            load();
+
+            if (typeof emmetMonaco !== 'undefined') emmetMonaco.emmetHTML(monaco);
+            loadFiles();
         });
 
-        async function load() {
-            const res = await fetch('/api/action?list=true');
-            blobs = await res.json();
-            const list = document.getElementById('file-list');
-            list.innerHTML = "";
-            blobs.forEach(b => {
-                const item = document.createElement('div');
-                item.className = `file-item ${currentFile === b.pathname ? 'active' : ''}`;
-                item.innerHTML = `<span>${b.pathname}</span>`;
-                if(b.pathname !== 'index.html') {
-                    const del = document.createElement('span');
-                    del.className = 'del-btn'; del.innerHTML = '&times;';
-                    del.onclick = (e) => { e.stopPropagation(); remove(b); };
-                    item.appendChild(del);
-                }
-                item.onclick = () => open(b);
-                list.appendChild(item);
-            });
+        async function loadFiles() {
+            try {
+                const res = await fetch('/api/action?list=true');
+                currentBlobs = await res.json();
+                const listContainer = document.getElementById('file-list');
+                listContainer.innerHTML = "";
+                
+                currentBlobs.forEach(blob => {
+                    const div = document.createElement('div');
+                    div.className = 'file-item' + (currentFile === blob.pathname ? ' active' : '');
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.innerText = blob.pathname;
+                    nameSpan.style.flexGrow = "1";
+                    nameSpan.onclick = () => openFile(blob, div);
+                    div.appendChild(nameSpan);
+
+                    if (blob.pathname !== 'index.html') {
+                        const delBtn = document.createElement('span');
+                        delBtn.className = 'delete-btn';
+                        delBtn.innerHTML = '&times;';
+                        delBtn.onclick = (e) => { e.stopPropagation(); deleteFile(blob); };
+                        div.appendChild(delBtn);
+                    }
+                    listContainer.appendChild(div);
+                });
+            } catch (e) { console.error(e); }
         }
 
-        async function open(b) {
-            const res = await fetch(`${b.url}?t=${Date.now()}`);
-            editor.setValue(await res.text());
-            currentFile = b.pathname;
-            load();
+        async function openFile(blob, element) {
+            document.getElementById('loader').style.display = "block";
+            try {
+                const res = await fetch(`${blob.url}?t=${Date.now()}`);
+                const content = await res.text();
+                
+                document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+                element.classList.add('active');
+
+                const ext = blob.pathname.split('.').pop();
+                const lang = ext === 'js' ? 'javascript' : (ext === 'css' ? 'css' : 'html');
+                monaco.editor.setModelLanguage(editor.getModel(), lang);
+                
+                editor.setValue(content);
+                currentFile = blob.pathname;
+            } catch (err) { alert("Error loading"); }
+            document.getElementById('loader').style.display = "none";
         }
 
         document.getElementById('save-btn').onclick = async () => {
-            if(!currentFile) return;
+            if (!currentFile) return;
+            document.getElementById('loader').style.display = "block";
             await fetch('/api/action', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: currentFile, content: editor.getValue() })
             });
+            document.getElementById('loader').style.display = "none";
         };
 
         document.getElementById('preview-btn').onclick = () => {
-            const b = blobs.find(x => x.pathname === currentFile);
-            if(b) window.open(`${b.url}?download=false&t=${Date.now()}`, '_blank');
+            if (!currentFile) return;
+            const file = currentBlobs.find(b => b.pathname === currentFile);
+            if (file) window.open(`${file.url}?download=false&t=${Date.now()}`, '_blank');
         };
 
-        document.getElementById('add').onclick = async () => {
-            const n = prompt("Name:");
-            if(n) {
-                await fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: n, content: " " }) });
-                load();
-            }
+        document.getElementById('new-file-btn').onclick = async () => {
+            const fileName = prompt("File name:");
+            if (!fileName) return;
+            await fetch('/api/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: fileName, content: " " })
+            });
+            loadFiles();
         };
 
-        async function remove(b) {
-            if(confirm("Delete?")) {
-                await fetch(`/api/action?url=${encodeURIComponent(b.url)}&name=${b.pathname}`, { method: 'DELETE' });
-                load();
-            }
+        async function deleteFile(blob) {
+            if (!confirm("Delete?")) return;
+            await fetch(`/api/action?url=${encodeURIComponent(blob.url)}&name=${blob.pathname}`, { method: 'DELETE' });
+            if (currentFile === blob.pathname) { editor.setValue(""); currentFile = null; }
+            loadFiles();
         }
     </script>
 </body>
