@@ -12,7 +12,7 @@ export default async function handler(req, res) {
             return res.status(200).json(blobs);
         }
 
-        // 2. TWORZENIE / ZAPISYWANIE
+        // 2. TWORZENIE / ZAPISYWANIE (Z NADPISYWANIEM)
         if (req.method === 'POST') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { name, content } = body;
@@ -21,10 +21,11 @@ export default async function handler(req, res) {
 
             const safeContent = (content === "" || content === undefined) ? " " : content;
 
-            // KLUCZOWA POPRAWKA: dodajemy addRandomSuffix: false
+            // TUTAJ POPRAWKA:
             const blob = await put(name, safeContent, {
                 access: 'public',
-                addRandomSuffix: false, // To sprawia, że nazwa pliku jest stała
+                addRandomSuffix: false, // Stała nazwa pliku
+                allowOverwrite: true    // WYMUSZENIE NADPISANIA
             });
             
             return res.status(200).json(blob);
@@ -33,7 +34,6 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: "Method not allowed" });
     } catch (error) {
         console.error("Vercel Blob Error:", error.message);
-        // Jeśli błąd nadal dotyczy nadpisywania, zwracamy go jasno
         return res.status(500).json({ error: error.message });
     }
 }
