@@ -1,4 +1,4 @@
-import { put, list } from '@vercel/blob';
+import { put, list, del } from '@vercel/blob';
 
 export default async function handler(req, res) {
     try {
@@ -12,28 +12,36 @@ export default async function handler(req, res) {
             return res.status(200).json(blobs);
         }
 
-        // 2. TWORZENIE / ZAPISYWANIE (Z NADPISYWANIEM)
+        // 2. ZAPISYWANIE / TWORZENIE
         if (req.method === 'POST') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { name, content } = body;
-
-            if (!name) return res.status(400).json({ error: "Filename required" });
+            if (!name) return res.status(400).json({ error: "No name" });
 
             const safeContent = (content === "" || content === undefined) ? " " : content;
-
-            // TUTAJ POPRAWKA:
             const blob = await put(name, safeContent, {
                 access: 'public',
-                addRandomSuffix: false, // Stała nazwa pliku
-                allowOverwrite: true    // WYMUSZENIE NADPISANIA
+                addRandomSuffix: false,
+                allowOverwrite: true
             });
-            
             return res.status(200).json(blob);
         }
 
-        return res.status(405).json({ error: "Method not allowed" });
+        // 3. USUWANIE (NOWOŚĆ)
+        if (req.method === 'DELETE') {
+            const { url, name } = req.query;
+            
+            // Blokada usuwania index.html na poziomie serwera (bezpieczeństwo!)
+            if (name === 'index.html') {
+                return res.status(403).json({ error: "Cannot delete index.html" });
+            }
+
+            await del(url);
+            return res.status(200).json({ success: true });
+        }
+
     } catch (error) {
-        console.error("Vercel Blob Error:", error.message);
         return res.status(500).json({ error: error.message });
     }
+    return res.status(405).end();
 }
