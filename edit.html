@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editor</title>
+    <title>Web Editor</title>
     <style>
         :root { 
             --sidebar-bg: #252526; 
@@ -13,67 +13,24 @@
             --accent: #007acc;
             --danger: #f14c4c;
         }
-
-        body { 
-            margin: 0; display: flex; height: 100vh; 
-            background: var(--editor-bg); font-family: 'Segoe UI', sans-serif; 
-            color: white; overflow: hidden;
-        }
-        
-        #sidebar { 
-            width: 260px; background: var(--sidebar-bg); 
-            border-right: 1px solid #333; display: flex; flex-direction: column; 
-        }
-
-        .sidebar-header {
-            padding: 15px; border-bottom: 1px solid #333;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-
+        body { margin: 0; display: flex; height: 100vh; background: var(--editor-bg); font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
+        #sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         #sidebar h3 { font-size: 11px; margin: 0; text-transform: uppercase; opacity: 0.6; }
-
-        #new-file-btn {
-            background: none; border: none; color: var(--text-color);
-            cursor: pointer; font-size: 20px;
-        }
-
+        #new-file-btn { background: none; border: none; color: var(--text-color); cursor: pointer; font-size: 20px; }
         #file-list { overflow-y: auto; flex-grow: 1; }
-
-        .file-item { 
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 20px; cursor: pointer; font-size: 13px; 
-            color: var(--text-color); border-bottom: 1px solid #2d2d2d;
-        }
+        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; cursor: pointer; font-size: 13px; color: var(--text-color); border-bottom: 1px solid #2d2d2d; }
         .file-item:hover { background: #2a2d2e; }
         .file-item.active { background: var(--active-item); color: white; }
-
-        .delete-btn {
-            color: var(--danger); font-size: 18px; opacity: 0;
-            cursor: pointer; padding: 0 5px;
-        }
+        .delete-btn { color: var(--danger); font-size: 18px; opacity: 0; cursor: pointer; padding: 0 5px; }
         .file-item:hover .delete-btn { opacity: 1; }
-
         #main-container { flex-grow: 1; position: relative; display: flex; flex-direction: column; }
         #editor { flex-grow: 1; }
-
-        .toolbar {
-            position: absolute; top: 15px; right: 25px; 
-            z-index: 100; display: flex; gap: 10px;
-        }
-
-        button.action-btn {
-            border: none; padding: 8px 15px; border-radius: 2px;
-            cursor: pointer; font-size: 12px; font-weight: bold; color: white;
-        }
-
+        .toolbar { position: absolute; top: 15px; right: 25px; z-index: 100; display: flex; gap: 10px; }
+        button.action-btn { border: none; padding: 8px 15px; border-radius: 2px; cursor: pointer; font-size: 12px; font-weight: bold; color: white; }
         #preview-btn { background: #3a3d41; }
         #save-btn { background: var(--accent); }
-
-        #loader {
-            position: absolute; top: 20px; left: 20px; z-index: 1000;
-            background: rgba(0,0,0,0.8); padding: 6px 15px; 
-            font-size: 12px; display: none; border: 1px solid #444;
-        }
+        #loader { position: absolute; top: 20px; left: 20px; z-index: 1000; background: rgba(0,0,0,0.8); padding: 6px 15px; font-size: 12px; display: none; border: 1px solid #444; }
     </style>
 </head>
 <body>
@@ -106,7 +63,8 @@
         require(['vs/editor/editor.main'], function () {
             editor = monaco.editor.create(document.getElementById('editor'), {
                 value: "", language: 'html', theme: 'vs-dark',
-                automaticLayout: true, fontSize: 14, minimap: { enabled: false }
+                automaticLayout: true, fontSize: 14, minimap: { enabled: false },
+                contextmenu: false // PRZYWRACA PRAWY PRZYCISK MYSZY PRZEGLĄDARKI
             });
 
             if (typeof emmetMonaco !== 'undefined') emmetMonaco.emmetHTML(monaco);
@@ -175,7 +133,10 @@
         document.getElementById('preview-btn').onclick = () => {
             if (!currentFile) return;
             const file = currentBlobs.find(b => b.pathname === currentFile);
-            if (file) window.open(`${file.url}?download=false&t=${Date.now()}`, '_blank');
+            if (file) {
+                // download=false zapobiega pobieraniu pliku HTML
+                window.open(`${file.url}?download=false&t=${Date.now()}`, '_blank');
+            }
         };
 
         document.getElementById('new-file-btn').onclick = async () => {
