@@ -5,26 +5,38 @@
     <title>Preview</title>
     <style>
         body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: #fff; }
-        iframe { border: none; width: 100%; height: 100%; }
+        iframe { border: none; width: 100%; height: 100%; display: block; }
     </style>
 </head>
 <body>
     <iframe id="output"></iframe>
     <script>
-        (async () => {
-            const params = new URLSearchParams(window.location.search);
-            const fileName = params.get('file') || 'index.html';
+        const params = new URLSearchParams(window.location.search);
+        const fileName = params.get('file') || 'index.html';
+        const iframe = document.getElementById('output');
+        let lastContent = "";
+
+        async function updatePreview() {
             try {
                 const listRes = await fetch('/api/action?list=true');
                 const blobs = await listRes.json();
                 const fileBlob = blobs.find(b => b.pathname === fileName);
+
                 if (fileBlob) {
                     const contentRes = await fetch(`${fileBlob.url}?t=${Date.now()}`);
-                    const code = await contentRes.text();
-                    document.getElementById('output').srcdoc = code;
+                    const currentContent = await contentRes.text();
+
+                    if (currentContent !== lastContent) {
+                        lastContent = currentContent;
+                        iframe.srcdoc = currentContent;
+                    }
                 }
             } catch (e) {}
-        })();
+        }
+
+        // Sprawdzanie zmian co sekundę
+        setInterval(updatePreview, 1000);
+        updatePreview();
     </script>
 </body>
 </html>
